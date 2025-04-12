@@ -1,1 +1,1 @@
-# websore-config
+# webstore-config
