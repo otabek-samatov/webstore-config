@@ -16,14 +16,7 @@ management:
       exposure:
         include: "*"
         
-spring:
-  application:
-    name: product-service
-  config:
-    import: "optional:configserver:"
-  cloud:
-    config:
-      uri: http://localhost:8071
+spring:  
   datasource:
     url: jdbc:postgresql://localhost:5432/webstore?currentSchema=webstore
     username: user
