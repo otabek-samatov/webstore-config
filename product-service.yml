@@ -18,7 +18,7 @@ management:
         
 spring:  
   datasource:
-    url: jdbc:postgresql://localhost:5432/webstore?currentSchema=webstore
+    url: jdbc:postgresql://localhost:5432/webstore?currentSchema=product_schema
     username: user
     password: password
     driverClassName: org.postgresql.Driver
