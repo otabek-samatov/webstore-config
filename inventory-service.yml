@@ -18,7 +18,7 @@ management:
         
 spring:  
   datasource:
-    url: jdbc:postgresql://localhost:5432/webstore?currentSchema=inventory-schema
+    url: jdbc:postgresql://localhost:5432/webstore?currentSchema=inventory_schema
     username: user
     password: password
     driverClassName: org.postgresql.Driver
