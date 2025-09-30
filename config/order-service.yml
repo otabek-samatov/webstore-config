@@ -1,0 +1,5 @@
+server:
+  port: 8077
+ 
+service:
+  schemaName: order_schema
