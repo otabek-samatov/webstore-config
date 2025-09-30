@@ -1,0 +1,6 @@
+server:
+  port: 8073
+
+service:
+  schemaName: product_schema
+ 

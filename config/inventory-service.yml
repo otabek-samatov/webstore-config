@@ -1,0 +1,5 @@
+server:
+  port: 8074
+
+service:
+  schemaName: inventory_schema
