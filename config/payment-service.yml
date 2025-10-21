@@ -1,0 +1,5 @@
+server:
+  port: 8078
+ 
+service:
+  schemaName: payment_schema
