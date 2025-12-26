@@ -42,4 +42,6 @@ replication:
   
 topic:
   stock:
-    status: stock-status-event
+    status: stock-status-event 
+  order:
+    status: order-status-event
