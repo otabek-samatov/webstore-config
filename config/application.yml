@@ -30,3 +30,16 @@ spring:
         format_sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
         
+
+bootstrap:
+  servers: localhost:9092  # Kafka broker address(es)
+
+num:
+  partitions: 12  # number of partitions for the topic
+
+replication:
+  factor: 3
+  
+topic:
+  stock:
+    status: stock-status-event
