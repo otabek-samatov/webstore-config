@@ -35,10 +35,10 @@ bootstrap:
   servers: localhost:9092  # Kafka broker address(es)
 
 num:
-  partitions: 12  # number of partitions for the topic
+  partitions: 3  # number of partitions for the topic
 
 replication:
-  factor: 3
+  factor: 1
   
 topic:
   stock:
