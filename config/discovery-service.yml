@@ -1,9 +1,6 @@
 spring:
   application:
     name: discovery-server
-  boot:
-    admin:
-      context-path: /admin
 
 server:
   port: 8070

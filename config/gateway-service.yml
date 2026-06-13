@@ -4,12 +4,6 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: cart-service
-          uri: lb://cart-service
-          predicates:
-            - Path=/cart/**
-          filters:
-            - RewritePath=/cart/(?<path>.*), /$\{path}
         - id: inventory-service
           uri: lb://inventory-service
           predicates:

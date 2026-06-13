@@ -29,7 +29,6 @@ webstore-config/
     ├── product-service.yml
     ├── inventory-service.yml
     ├── user-service.yml
-    ├── cart-service.yml
     ├── order-service.yml
     └── payment-service.yml
 ```
@@ -93,12 +92,11 @@ injected into the shared datasource URL). The infrastructure services carry rich
 
 | File                     | `spring.application.name` | Port | `service.schemaName` | Notable overrides                                                                 |
 |--------------------------|---------------------------|------|----------------------|-----------------------------------------------------------------------------------|
-| `discovery-service.yml`  | `discovery-server`        | 8070 | —                    | Eureka **server** (`registerWithEureka: false`, `fetchRegistry: false`); Spring Boot Admin at `/admin` |
+| `discovery-service.yml`  | `discovery-server`        | 8070 | —                    | Eureka **server** (`registerWithEureka: false`, `fetchRegistry: false`)           |
 | `gateway-service.yml`    | (default)                 | 8072 | —                    | `spring.cloud.gateway.routes` (see below)                                         |
 | `product-service.yml`    | (default)                 | 8073 | `product_schema`     | —                                                                                 |
 | `inventory-service.yml`  | (default)                 | 8074 | `inventory_schema`   | —                                                                                 |
 | `user-service.yml`       | (default)                 | 8075 | `user_schema`        | —                                                                                 |
-| `cart-service.yml`       | (default)                 | 8076 | `cart_schema`        | —                                                                                 |
 | `order-service.yml`      | (default)                 | 8077 | `order_schema`       | —                                                                                 |
 | `payment-service.yml`    | (default)                 | 8078 | `payment_schema`     | —                                                                                 |
 
@@ -112,7 +110,6 @@ service:
 
 | External path   | Routed to (`lb://`)      |
 |-----------------|--------------------------|
-| `/cart/**`      | `lb://cart-service`      |
 | `/inventory/**` | `lb://inventory-service` |
 | `/order/**`     | `lb://order-service`     |
 | `/payment/**`   | `lb://payment-service`   |
