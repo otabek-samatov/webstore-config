@@ -45,3 +45,5 @@ topic:
     status: stock-status-event 
   order:
     status: order-status-event
+  payment:
+    status: payment-status-event
