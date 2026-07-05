@@ -5,7 +5,8 @@ eureka:
     registerWithEureka: true
     fetchRegistry: true
     serviceUrl:
-      defaultZone: http://localhost:8070/eureka/
+      # Overridable per environment (containers set EUREKA_URI=http://discovery-service:8070/eureka/)
+      defaultZone: ${EUREKA_URI:http://localhost:8070/eureka/}
            
 management:
   endpoints:
@@ -41,7 +42,9 @@ spring:
         
 
 bootstrap:
-  servers: localhost:9092  # Kafka broker address(es)
+  # Kafka broker address(es). Containers set KAFKA_BROKERS=kafka:19092 (the
+  # broker's INTERNAL listener); host runs default to the localhost listener.
+  servers: ${KAFKA_BROKERS:localhost:9092}
 
 num:
   partitions: 3  # number of partitions for the topic
