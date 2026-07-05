@@ -16,8 +16,11 @@ management:
 spring:  
   datasource:
     url: jdbc:postgresql://localhost:5432/webstore?currentSchema=${service.schemaName}
-    username: user
-    password: password
+    # Credentials are NOT stored in this repo. Each service resolves these
+    # placeholders from its own environment at startup (values must match
+    # the Docker secrets in webstore/secrets/).
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driverClassName: org.postgresql.Driver
   jpa:
     hibernate:
