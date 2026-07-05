@@ -10,7 +10,7 @@ by the **config-service** (Spring Cloud Config Server, port `8071`, which lives 
 `webstore` repo). Every other service fetches its configuration from the Config Server on startup.
 
 - **Remote:** https://github.com/otabek-samatov/webstore-config
-- **Local clone (this directory):** `C:\Projects\webstore-config`
+- **Local clone (this directory):** `C:\Data\Projects\webstore-config`
 - **Consumed by:** the config-service, which is pointed at this repo's `config/` directory.
 
 > ⚠️ The Config Server reads from the **Git remote**, not this local working copy. A change only
@@ -42,9 +42,11 @@ Spring Cloud Config matches each requesting service's `spring.application.name` 
 defaults). Property precedence: `<service>.yml` overrides `application.yml`.
 
 - A service's source-tree `application.yml` contains only bootstrap config (`spring.application.name`
-  + `config.import: optional:configserver:` + the Config Server URI `http://localhost:8071`).
-  **Everything else** — DB, Kafka, port, schema — is resolved from here at startup. Do not duplicate
-  these values back into a service's source tree.
+  + `config.import: "optional:configserver:,optional:configtree:/run/secrets/"` + the Config Server URI
+  `http://localhost:8071`). The `configtree` import turns Docker secret files into properties when the
+  service runs in a container (host runs: silent no-op). **Everything else** — DB, Kafka, port,
+  schema — is resolved from here at startup. Do not duplicate these values back into a service's
+  source tree.
 
 > **Filename vs. application name gotcha:** the file name is the **config-lookup key** (the client's
 > bootstrap `spring.application.name`), and a served file may then override `spring.application.name`
@@ -60,11 +62,18 @@ Applied to every service unless overridden:
 - **Eureka client:** `defaultZone: http://localhost:8070/eureka/`, `preferIpAddress: true`,
   `registerWithEureka: true`, `fetchRegistry: true`
 - **Actuator:** `management.endpoints.web.exposure.include: "*"`
-- **Datasource:** single shared PostgreSQL instance —
-  `jdbc:postgresql://localhost:5432/webstore?currentSchema=${service.schemaName}`,
-  user `user` / password `password`, driver `org.postgresql.Driver`. The `${service.schemaName}`
-  placeholder is supplied per-service (see below), giving **schema-per-service** isolation inside
-  one shared `webstore` database.
+- **Datasource:** single shared PostgreSQL instance (PostgreSQL 18, run via the `webstore` repo's
+  `docker-compose.yml`) —
+  `jdbc:postgresql://${db.host:localhost}:${db.port:5432}/${db.name:webstore}?currentSchema=${service.schemaName}`,
+  driver `org.postgresql.Driver`. Host/port/database carry local-dev defaults inline and are
+  overridable per environment via `DB_HOST` / `DB_PORT` / `DB_NAME` env vars (e.g. `DB_HOST=postgres`
+  for containerized services). The `${service.schemaName}` placeholder is supplied per-service
+  (see below), giving **schema-per-service** isolation inside one shared `webstore` database.
+- **Datasource credentials:** `username: ${db_username}` / `password: ${db_password}` — **this repo
+  contains no credentials.** Host runs resolve them from `DB_USERNAME` / `DB_PASSWORD` env vars
+  (relaxed binding); containerized runs resolve them from Docker secret files named `db_username` /
+  `db_password` via each service's `optional:configtree:/run/secrets/` import. The values must match
+  the Docker secrets in `webstore/secrets/` (gitignored) that initialize the Postgres container.
 - **JPA / Hibernate:** `ddl-auto: validate` (**Flyway is authoritative** for schema — entities must
   match the migrated schema or the service fails to start), `show-sql: true`, `format_sql: true`,
   `PhysicalNamingStrategyStandardImpl`, `PostgreSQLDialect`.
@@ -73,7 +82,9 @@ Applied to every service unless overridden:
   - `num.partitions: 3`
   - `replication.factor: 1`   ← sized for a **single-broker** local Kafka
   - `topic.stock.status: stock-status-event`
-  - `topic.order.status: order-status-event`
+  - `topic.payment.status: payment-status-event`
+  - `topic.order.status: order-status-event`   ← **legacy, no longer read by any service** (the
+    payment→order channel moved to `topic.payment.status`)
 
 > ⚠️ **These Kafka keys are custom top-level properties, NOT the standard `spring.kafka.*` keys.**
 > They do not auto-configure Spring Boot's Kafka support. Each service that uses Kafka reads them via
@@ -120,7 +131,7 @@ Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
 
 <a id="editing-workflow"></a>## Editing Workflow
 
-1. Edit the relevant file under `C:\Projects\webstore-config\config\`.
+1. Edit the relevant file under `C:\Data\Projects\webstore-config\config\`.
 2. **Commit and push** to the Git remote — the Config Server reads from Git, so an un-pushed change
    will not take effect.
 3. Apply the change to running services by either:
@@ -139,9 +150,15 @@ Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
 - **`ddl-auto: validate`** means schema drift is fatal at startup. When a service adds a Flyway
   migration, no config change is needed here — but never switch this to `update`/`create` to "fix"
   a validation error; fix the migration instead.
-- **Plaintext credentials.** `application.yml` carries the DB username/password in clear text. This
-  is a **local-dev** configuration — there is no encryption, Vault, or per-environment profile here.
-  Do not treat it as a production-hardened setup.
+- **No credentials in this repo.** `application.yml` references `${db_username}` / `${db_password}`
+  placeholders; the actual values live outside Git (env vars on host runs, Docker secret files in
+  containers — see Shared Defaults above). Never commit a literal username/password here — if a value
+  must vary, add a placeholder with a non-secret default instead. Note there is still no encryption,
+  Vault, or per-environment profile — this remains a local-dev setup, just without secrets in Git.
+- **Config Server properties beat env vars.** By default Spring Cloud Config property sources override
+  the client's system/environment properties. That's why the datasource defaults are inline placeholder
+  defaults (`${db.host:localhost}`) rather than `db.host: localhost` keys in this file — repo-defined
+  keys would silently win over a service's `DB_HOST` env var.
 - **No profiles.** There are no `<service>-<profile>.yml` variants today; every environment would
   resolve to the same values. Introduce Spring profiles if environment-specific config is needed.
 - **Indentation/whitespace** in these files is hand-maintained YAML — keep two-space indents and
