@@ -15,7 +15,11 @@ management:
         
 spring:  
   datasource:
-    url: jdbc:postgresql://localhost:5432/webstore?currentSchema=${service.schemaName}
+    # Connection coordinates are property-driven with local-dev defaults.
+    # Override per environment via DB_HOST / DB_PORT / DB_NAME env vars
+    # (relaxed binding: db.host -> DB_HOST), a per-service <name>.yml, or
+    # config-tree files — e.g. in Docker set DB_HOST=postgres.
+    url: jdbc:postgresql://${db.host:localhost}:${db.port:5432}/${db.name:webstore}?currentSchema=${service.schemaName}
     # Credentials are NOT stored in this repo. Resolved at service startup:
     # in a container, from Docker secret files via the configtree import of
     # /run/secrets/ (files db_username / db_password); on a host, from the
