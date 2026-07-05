@@ -59,7 +59,8 @@ defaults). Property precedence: `<service>.yml` overrides `application.yml`.
 
 Applied to every service unless overridden:
 
-- **Eureka client:** `defaultZone: http://localhost:8070/eureka/`, `preferIpAddress: true`,
+- **Eureka client:** `defaultZone: ${EUREKA_URI:http://localhost:8070/eureka/}` (containers set
+  `EUREKA_URI=http://discovery-service:8070/eureka/`), `preferIpAddress: true`,
   `registerWithEureka: true`, `fetchRegistry: true`
 - **Actuator:** `management.endpoints.web.exposure.include: "*"`
 - **Datasource:** single shared PostgreSQL instance (PostgreSQL 18, run via the `webstore` repo's
@@ -78,7 +79,8 @@ Applied to every service unless overridden:
   match the migrated schema or the service fails to start), `show-sql: true`, `format_sql: true`,
   `PhysicalNamingStrategyStandardImpl`, `PostgreSQLDialect`.
 - **Kafka (custom keys — see warning below):**
-  - `bootstrap.servers: localhost:9092`
+  - `bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}` (containers set `KAFKA_BROKERS=kafka:19092`,
+    the broker's INTERNAL listener)
   - `num.partitions: 3`
   - `replication.factor: 1`   ← sized for a **single-broker** local Kafka
   - `topic.stock.status: stock-status-event`
