@@ -1,5 +1,7 @@
 server:
-  port: 8078
+  # Host runs fall back to the default; Docker passes SERVICE_PORT (mapped from
+  # PAYMENT_SERVICE_PORT in webstore/.env by docker-compose.yml).
+  port: ${SERVICE_PORT:8078}
  
 service:
   schemaName: payment_schema

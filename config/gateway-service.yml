@@ -1,5 +1,7 @@
 server:
-  port: 8072
+  # Host runs fall back to the default; Docker passes SERVICE_PORT (mapped from
+  # GATEWAY_SERVICE_PORT in webstore/.env by docker-compose.yml).
+  port: ${SERVICE_PORT:8072}
 spring:
   cloud:
     gateway:

@@ -1,5 +1,7 @@
 server:
-  port: 8073
+  # Host runs fall back to the default; Docker passes SERVICE_PORT (mapped from
+  # PRODUCT_SERVICE_PORT in webstore/.env by docker-compose.yml).
+  port: ${SERVICE_PORT:8073}
 
 service:
   schemaName: product_schema
