@@ -1,0 +1,32 @@
+# =============================================================================
+# Shared UAT overrides — merged on top of application.yml for every service
+# when SPRING_PROFILES_ACTIVE=uat.
+#
+# UAT is production-like but keeps a little more observability than PROD.
+# Put only UAT-specific deltas here; unchanged values inherit from
+# application.yml.
+# =============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expose only what UAT dashboards / probes need, not everything.
+        include: "health,info,metrics,prometheus,refresh"
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        # Keep SQL readable in UAT logs, but at info level (see logging below).
+        format_sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: info
+
+# Sized for a small multi-broker UAT Kafka. Adjust replication.factor to the
+# actual broker count (must be <= number of brokers).
+num:
+  partitions: 6
+replication:
+  factor: 2

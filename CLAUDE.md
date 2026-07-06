@@ -24,21 +24,34 @@ webstore-config/
 ├── LICENSE
 └── config/
     ├── application.yml          # shared defaults applied to EVERY service
+    ├── application-dev.yml      # shared per-profile overlays (DEV / UAT / PROD)
+    ├── application-uat.yml
+    ├── application-prod.yml
     ├── gateway-service.yml      # per-service overrides (one file per service)
     ├── product-service.yml
     ├── inventory-service.yml
     ├── user-service.yml
     ├── order-service.yml
+    ├── order-service-prod.yml   # per-service, per-profile overlay (example)
     └── payment-service.yml
 ```
 
 All runtime configuration lives under `config/`. There is nothing else to build or run here.
 
+The `-<profile>` files are **environment overlays** (see [Profiles](#profiles)): they are merged only
+when a client requests that Spring profile via `SPRING_PROFILES_ACTIVE` (DEV / UAT / PROD). The active
+profile is selected in the `webstore` repo's per-environment `.env` files (`SPRING_PROFILE`), not here.
+
 ## How Configuration Resolution Works
 
 Spring Cloud Config matches each requesting service's `spring.application.name` to a
 `<name>.yml` file in `config/`, then **merges it on top of `application.yml`** (the shared
-defaults). Property precedence: `<service>.yml` overrides `application.yml`.
+defaults). When the client sends an active profile (`SPRING_PROFILES_ACTIVE`), the matching
+`application-<profile>.yml` and `<service>-<profile>.yml` overlays are merged too.
+
+Property precedence, low→high:
+`application.yml` → `application-<profile>.yml` → `<service>.yml` → `<service>-<profile>.yml`
+(a more specific / more profile-specific file wins). See [Profiles](#profiles).
 
 - A service's source-tree `application.yml` contains only bootstrap config (`spring.application.name`
   + `config.import: "optional:configserver:,optional:configtree:/run/secrets/"` + the Config Server URI
@@ -152,8 +165,10 @@ Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
    - calling `POST /actuator/refresh` on a service whose beans are `@RefreshScope`.
 
 **Where to put a change:**
-- Affects every service (Kafka brokers, DB host, topic names) → `application.yml`.
-- Affects one service (its port, schema, gateway routes, service URLs) → `<service>.yml`.
+- Affects every service, every environment (topic names, DB host default) → `application.yml`.
+- Affects one service, every environment (its port, schema, gateway routes, service URLs) → `<service>.yml`.
+- Affects every service in one environment (actuator surface, log level, Kafka sizing) → `application-<profile>.yml`.
+- Affects one service in one environment → `<service>-<profile>.yml`.
 
 ## Conventions & Gotchas
 
@@ -166,15 +181,35 @@ Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
 - **No credentials in this repo.** `application.yml` references `${db_username}` / `${db_password}`
   placeholders; the actual values live outside Git (env vars on host runs, Docker secret files in
   containers — see Shared Defaults above). Never commit a literal username/password here — if a value
-  must vary, add a placeholder with a non-secret default instead. Note there is still no encryption,
-  Vault, or per-environment profile — this remains a local-dev setup, just without secrets in Git.
+  must vary non-secretly, add a placeholder with a default or a profile overlay (see below). Note there
+  is still no encryption or Vault — secrets stay out of Git entirely, in every profile.
 - **Config Server properties beat env vars.** By default Spring Cloud Config property sources override
   the client's system/environment properties. That's why per-environment values are written as inline
   placeholder defaults (`${db.host:localhost}`, `${SERVICE_PORT:8073}`, `${INVENTORY_SERVICE_URL:...}`)
   rather than plain keys (`db.host: localhost`) in this file — a plain repo-defined key would silently
   win over the service's `DB_HOST` / `SERVICE_PORT` / `*_SERVICE_URL` env var. The placeholder form
   leaves the env var free to fill the value and only falls back to the default when it's unset.
-- **No profiles.** There are no `<service>-<profile>.yml` variants today; every environment would
-  resolve to the same values. Introduce Spring profiles if environment-specific config is needed.
+- **Profiles are overlays, not full copies.** A `-<profile>.yml` file should contain only the keys that
+  **differ** for that environment; everything else inherits from the base file. Don't duplicate an
+  entire base file just to change one value.
 - **Indentation/whitespace** in these files is hand-maintained YAML — keep two-space indents and
   avoid tabs.
+
+<a id="profiles"></a>## Profiles (DEV / UAT / PROD)
+
+Environment-specific config uses standard Spring Cloud Config profile files:
+
+- **Shared overlays:** `application-dev.yml`, `application-uat.yml`, `application-prod.yml` — merged on
+  top of `application.yml` for every service when that profile is active. Current deltas: actuator
+  exposure (all in DEV → trimmed in UAT/PROD), SQL log level (`org.hibernate.SQL` debug→warn),
+  `format_sql`, and Kafka sizing (`num.partitions` / `replication.factor`).
+- **Per-service overlays:** `<service>-<profile>.yml` (e.g. `order-service-prod.yml`) — for a single
+  service's env-specific override. Optional; add only when the shared overlay can't express it.
+
+**Selecting the profile:** clients send `SPRING_PROFILES_ACTIVE`. In the `webstore` repo that comes from
+the per-environment `.env` file (`SPRING_PROFILE` → forwarded by `docker-compose.yml` as
+`SPRING_PROFILES_ACTIVE`); `.env` = DEV, `.env.uat`, `.env.prod`. This repo doesn't choose the profile —
+it only supplies the overlays the chosen profile resolves to.
+
+> `replication.factor` in the UAT (2) and PROD (3) overlays assumes a multi-broker Kafka. Against a
+> single broker, `NewTopic` auto-creation fails — keep the factor ≤ the running broker count.

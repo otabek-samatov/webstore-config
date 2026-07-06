@@ -1,0 +1,14 @@
+# =============================================================================
+# order-service PROD overrides — merged on top of order-service.yml (which is
+# itself merged on top of application.yml + application-prod.yml) when
+# SPRING_PROFILES_ACTIVE=prod.
+#
+# Example of a SERVICE-SPECIFIC, per-environment override. Only list keys that
+# differ from order-service.yml; here the REST targets default to the in-cluster
+# DNS names but stay overridable via the *_SERVICE_URL env vars.
+# =============================================================================
+services:
+  inventory:
+    url: ${INVENTORY_SERVICE_URL:http://inventory-service:8074}
+  payment:
+    url: ${PAYMENT_SERVICE_URL:http://payment-service:8078}
