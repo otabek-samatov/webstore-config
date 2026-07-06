@@ -1,13 +1,3 @@
-eureka:
-  instance:
-    preferIpAddress: true
-  client:
-    registerWithEureka: true
-    fetchRegistry: true
-    serviceUrl:
-      # Overridable per environment (containers set EUREKA_URI=http://discovery-service:8070/eureka/)
-      defaultZone: ${EUREKA_URI:http://localhost:8070/eureka/}
-           
 management:
   endpoints:
     web:

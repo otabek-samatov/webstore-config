@@ -3,33 +3,36 @@ server:
 spring:
   cloud:
     gateway:
+      # Route targets are direct URLs (no service discovery). Defaults suit
+      # host runs; containers override via the *_SERVICE_URL env vars set in
+      # docker-compose.yml (Compose DNS name + fixed port).
       routes:
         - id: inventory-service
-          uri: lb://inventory-service
+          uri: ${INVENTORY_SERVICE_URL:http://localhost:8074}
           predicates:
             - Path=/inventory/**
           filters:
             - RewritePath=/inventory/(?<path>.*), /$\{path}
         - id: order-service
-          uri: lb://order-service
+          uri: ${ORDER_SERVICE_URL:http://localhost:8077}
           predicates:
             - Path=/order/**
           filters:
             - RewritePath=/order/(?<path>.*), /$\{path}
         - id: payment-service
-          uri: lb://payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8078}
           predicates:
             - Path=/payment/**
           filters:
             - RewritePath=/payment/(?<path>.*), /$\{path}
         - id: product-service
-          uri: lb://product-service
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8073}
           predicates:
             - Path=/product/**
           filters:
             - RewritePath=/product/(?<path>.*), /$\{path}
         - id: user-service
-          uri: lb://user-service
+          uri: ${USER_SERVICE_URL:http://localhost:8075}
           predicates:
             - Path=/user/**
           filters:

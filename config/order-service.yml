@@ -1,5 +1,13 @@
 server:
   port: 8077
- 
+
 service:
   schemaName: order_schema
+
+# Direct REST targets (no service discovery). Defaults suit host runs;
+# containers override via env vars set in docker-compose.yml.
+services:
+  inventory:
+    url: ${INVENTORY_SERVICE_URL:http://localhost:8074}
+  payment:
+    url: ${PAYMENT_SERVICE_URL:http://localhost:8078}

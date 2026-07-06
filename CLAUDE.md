@@ -24,8 +24,7 @@ webstore-config/
 ├── LICENSE
 └── config/
     ├── application.yml          # shared defaults applied to EVERY service
-    ├── discovery-service.yml    # per-service overrides (one file per service)
-    ├── gateway-service.yml
+    ├── gateway-service.yml      # per-service overrides (one file per service)
     ├── product-service.yml
     ├── inventory-service.yml
     ├── user-service.yml
@@ -48,20 +47,14 @@ defaults). Property precedence: `<service>.yml` overrides `application.yml`.
   schema — is resolved from here at startup. Do not duplicate these values back into a service's
   source tree.
 
-> **Filename vs. application name gotcha:** the file name is the **config-lookup key** (the client's
-> bootstrap `spring.application.name`), and a served file may then override `spring.application.name`
-> to a *different* runtime value. `discovery-service.yml` is fetched under the key
-> `discovery-service` but sets `spring.application.name: discovery-server` — so the Eureka server
-> registers as **`discovery-server`** while its config file is named `discovery-service.yml`. The
-> business services don't do this; their file name and application name match.
+> **Filename = application name:** the file name is the **config-lookup key** (the client's
+> bootstrap `spring.application.name`). In every current service the file name and application name
+> match — keep it that way; a mismatch silently serves the service only the shared defaults.
 
 ## Shared Defaults (`config/application.yml`)
 
 Applied to every service unless overridden:
 
-- **Eureka client:** `defaultZone: ${EUREKA_URI:http://localhost:8070/eureka/}` (containers set
-  `EUREKA_URI=http://discovery-service:8070/eureka/`), `preferIpAddress: true`,
-  `registerWithEureka: true`, `fetchRegistry: true`
 - **Actuator:** `management.endpoints.web.exposure.include: "*"`
 - **Datasource:** single shared PostgreSQL instance (PostgreSQL 18, run via the `webstore` repo's
   `docker-compose.yml`) —
@@ -105,29 +98,39 @@ injected into the shared datasource URL). The infrastructure services carry rich
 
 | File                     | `spring.application.name` | Port | `service.schemaName` | Notable overrides                                                                 |
 |--------------------------|---------------------------|------|----------------------|-----------------------------------------------------------------------------------|
-| `discovery-service.yml`  | `discovery-server`        | 8070 | —                    | Eureka **server** (`registerWithEureka: false`, `fetchRegistry: false`)           |
 | `gateway-service.yml`    | (default)                 | 8072 | —                    | `spring.cloud.gateway.routes` (see below)                                         |
 | `product-service.yml`    | (default)                 | 8073 | `product_schema`     | —                                                                                 |
 | `inventory-service.yml`  | (default)                 | 8074 | `inventory_schema`   | —                                                                                 |
 | `user-service.yml`       | (default)                 | 8075 | `user_schema`        | —                                                                                 |
-| `order-service.yml`      | (default)                 | 8077 | `order_schema`       | —                                                                                 |
+| `order-service.yml`      | (default)                 | 8077 | `order_schema`       | `services.inventory.url` / `services.payment.url` — direct REST targets (see below) |
 | `payment-service.yml`    | (default)                 | 8078 | `payment_schema`     | —                                                                                 |
 
 > config-service itself (port 8071) is **not** configured from this repo — it is the server that
 > serves it.
 
+### Service URLs — no service discovery
+
+There is **no Eureka / discovery layer**. Every cross-service target is a **direct URL** defined as a
+`${<NAME>_SERVICE_URL:http://localhost:<port>}` placeholder: the inline default suits host runs, and
+Docker Compose sets the env var to the container DNS name (e.g.
+`INVENTORY_SERVICE_URL=http://inventory-service:8074`). In Kubernetes the same env vars will point at
+K8s Service names.
+
+- `order-service.yml` → `services.inventory.url`, `services.payment.url` (read via `@Value` by
+  order-service's REST client code)
+- `gateway-service.yml` → the five route URIs below
+
 ### Gateway routes (`gateway-service.yml`)
 
-Each external path is stripped of its prefix via `RewritePath` and forwarded to the Eureka-named
-service:
+Each external path is stripped of its prefix via `RewritePath` and forwarded to the direct URL:
 
-| External path   | Routed to (`lb://`)      |
-|-----------------|--------------------------|
-| `/inventory/**` | `lb://inventory-service` |
-| `/order/**`     | `lb://order-service`     |
-| `/payment/**`   | `lb://payment-service`   |
-| `/product/**`   | `lb://product-service`   |
-| `/user/**`      | `lb://user-service`      |
+| External path   | Route URI placeholder                            |
+|-----------------|--------------------------------------------------|
+| `/inventory/**` | `${INVENTORY_SERVICE_URL:http://localhost:8074}` |
+| `/order/**`     | `${ORDER_SERVICE_URL:http://localhost:8077}`     |
+| `/payment/**`   | `${PAYMENT_SERVICE_URL:http://localhost:8078}`   |
+| `/product/**`   | `${PRODUCT_SERVICE_URL:http://localhost:8073}`   |
+| `/user/**`      | `${USER_SERVICE_URL:http://localhost:8075}`      |
 
 Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
 
@@ -141,8 +144,8 @@ Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
    - calling `POST /actuator/refresh` on a service whose beans are `@RefreshScope`.
 
 **Where to put a change:**
-- Affects every service (Kafka brokers, DB host, Eureka URL, topic names) → `application.yml`.
-- Affects one service (its port, schema, gateway routes, Eureka server flags) → `<service>.yml`.
+- Affects every service (Kafka brokers, DB host, topic names) → `application.yml`.
+- Affects one service (its port, schema, gateway routes, service URLs) → `<service>.yml`.
 
 ## Conventions & Gotchas
 
