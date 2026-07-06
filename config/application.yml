@@ -24,11 +24,17 @@ spring:
       ddl-auto: validate
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-    show-sql: true
+    # SQL logging goes through the org.hibernate.SQL logger (see logging.level
+    # below), NOT show-sql: show-sql prints to raw stdout, bypassing Logback —
+    # in containers that breaks the one-JSON-object-per-event structured logs.
     properties:
       hibernate:
         format_sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+logging:
+  level:
+    org.hibernate.SQL: debug
         
 
 bootstrap:
