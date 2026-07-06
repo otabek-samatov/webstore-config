@@ -96,17 +96,25 @@ Applied to every service unless overridden:
 For the **business services**, each file sets only `server.port` and `service.schemaName` (the schema
 injected into the shared datasource URL). The infrastructure services carry richer overrides.
 
-| File                     | `spring.application.name` | Port | `service.schemaName` | Notable overrides                                                                 |
-|--------------------------|---------------------------|------|----------------------|-----------------------------------------------------------------------------------|
-| `gateway-service.yml`    | (default)                 | 8072 | —                    | `spring.cloud.gateway.routes` (see below)                                         |
-| `product-service.yml`    | (default)                 | 8073 | `product_schema`     | —                                                                                 |
-| `inventory-service.yml`  | (default)                 | 8074 | `inventory_schema`   | —                                                                                 |
-| `user-service.yml`       | (default)                 | 8075 | `user_schema`        | —                                                                                 |
-| `order-service.yml`      | (default)                 | 8077 | `order_schema`       | `services.inventory.url` / `services.payment.url` — direct REST targets (see below) |
-| `payment-service.yml`    | (default)                 | 8078 | `payment_schema`     | —                                                                                 |
+`server.port` is written as `${SERVICE_PORT:<default>}` — the inline default (the "Port" column below)
+applies to host runs; in Docker each container is passed a uniform `SERVICE_PORT` env var so the port
+tracks the single source of truth in `webstore/.env` (Compose maps that repo's per-service
+`<NAME>_SERVICE_PORT` value onto `SERVICE_PORT`). See the `webstore` repo's `docker-compose.yml` and
+its `.env`. **If you change a default here, change the matching `<NAME>_SERVICE_PORT` in `webstore/.env`
+too**, or the host default and the Docker port will diverge.
 
-> config-service itself (port 8071) is **not** configured from this repo — it is the server that
-> serves it.
+| File                     | `spring.application.name` | Port (default)          | `service.schemaName` | Notable overrides                                                                 |
+|--------------------------|---------------------------|-------------------------|----------------------|-----------------------------------------------------------------------------------|
+| `gateway-service.yml`    | (default)                 | `${SERVICE_PORT:8072}`  | —                    | `spring.cloud.gateway.routes` (see below)                                         |
+| `product-service.yml`    | (default)                 | `${SERVICE_PORT:8073}`  | `product_schema`     | —                                                                                 |
+| `inventory-service.yml`  | (default)                 | `${SERVICE_PORT:8074}`  | `inventory_schema`   | —                                                                                 |
+| `user-service.yml`       | (default)                 | `${SERVICE_PORT:8075}`  | `user_schema`        | —                                                                                 |
+| `order-service.yml`      | (default)                 | `${SERVICE_PORT:8077}`  | `order_schema`       | `services.inventory.url` / `services.payment.url` — direct REST targets (see below) |
+| `payment-service.yml`    | (default)                 | `${SERVICE_PORT:8078}`  | `payment_schema`     | —                                                                                 |
+
+> config-service itself (default port 8071) is **not** configured from this repo — it is the server
+> that serves it. Its `server.port: ${SERVICE_PORT:8071}` lives in its **source** `application.yml`
+> in the `webstore` repo, driven by the same `SERVICE_PORT` / `.env` mechanism.
 
 ### Service URLs — no service discovery
 
@@ -161,9 +169,11 @@ Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
   must vary, add a placeholder with a non-secret default instead. Note there is still no encryption,
   Vault, or per-environment profile — this remains a local-dev setup, just without secrets in Git.
 - **Config Server properties beat env vars.** By default Spring Cloud Config property sources override
-  the client's system/environment properties. That's why the datasource defaults are inline placeholder
-  defaults (`${db.host:localhost}`) rather than `db.host: localhost` keys in this file — repo-defined
-  keys would silently win over a service's `DB_HOST` env var.
+  the client's system/environment properties. That's why per-environment values are written as inline
+  placeholder defaults (`${db.host:localhost}`, `${SERVICE_PORT:8073}`, `${INVENTORY_SERVICE_URL:...}`)
+  rather than plain keys (`db.host: localhost`) in this file — a plain repo-defined key would silently
+  win over the service's `DB_HOST` / `SERVICE_PORT` / `*_SERVICE_URL` env var. The placeholder form
+  leaves the env var free to fill the value and only falls back to the default when it's unset.
 - **No profiles.** There are no `<service>-<profile>.yml` variants today; every environment would
   resolve to the same values. Introduce Spring profiles if environment-specific config is needed.
 - **Indentation/whitespace** in these files is hand-maintained YAML — keep two-space indents and
