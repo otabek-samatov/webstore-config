@@ -32,3 +32,11 @@ num:
   partitions: 6
 replication:
   factor: 3
+
+# No interactive API docs in PROD: disable both the OpenAPI JSON endpoint
+# (/v3/api-docs) and the Swagger UI (/swagger-ui.html) served by springdoc.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
