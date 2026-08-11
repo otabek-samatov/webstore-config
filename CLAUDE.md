@@ -120,7 +120,7 @@ too**, or the host default and the Docker port will diverge.
 | File                     | `spring.application.name` | Port (default)          | `service.schemaName` | Notable overrides                                                                 |
 |--------------------------|---------------------------|-------------------------|----------------------|-----------------------------------------------------------------------------------|
 | `gateway-service.yml`    | (default)                 | `${SERVICE_PORT:8072}`  | —                    | `spring.cloud.gateway.routes` (see below)                                         |
-| `product-service.yml`    | (default)                 | `${SERVICE_PORT:8073}`  | `product_schema`     | —                                                                                 |
+| `product-service.yml`    | (default)                 | `${SERVICE_PORT:8073}`  | `product_schema`     | `spring.security.oauth2.resourceserver.jwt.issuer-uri` — it is a resource server (see below) |
 | `inventory-service.yml`  | (default)                 | `${SERVICE_PORT:8074}`  | `inventory_schema`   | —                                                                                 |
 | `user-service.yml`       | (default)                 | `${SERVICE_PORT:8075}`  | `user_schema`        | —                                                                                 |
 | `auth-service.yml`       | (default)                 | `${SERVICE_PORT:8076}`  | `auth_schema`        | —                                                                                 |
@@ -157,6 +157,25 @@ Each external path is stripped of its prefix via `RewritePath` and forwarded to 
 | `/user/**`      | `${USER_SERVICE_URL:http://localhost:8075}`      |
 
 Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
+
+### Resource servers
+
+`product-service.yml` is the first per-service file to configure token validation:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8076}
+```
+
+This value must equal the `iss` claim in the token **exactly** — any mismatch is a blanket 401 with
+no hint as to why. auth-service currently derives its issuer from the incoming request host, so the
+`localhost:8076` default only lines up for host runs; pin `AuthorizationServerSettings` on
+auth-service before pointing this at a container DNS name or the gateway. As more services become
+resource servers, each gets the same block (and they should all resolve to the same issuer).
 
 > ⚠️ **`/auth/**` is a special case.** Prefix stripping is fine for plain REST services, but an
 > authorization server advertises its own URLs. auth-service currently derives its issuer from the
