@@ -149,17 +149,26 @@ Each external path is stripped of its prefix via `RewritePath` and forwarded to 
 
 | External path   | Route URI placeholder                            |
 |-----------------|--------------------------------------------------|
+| `/auth/**`      | `${AUTH_SERVICE_URL:http://localhost:8076}`      |
 | `/inventory/**` | `${INVENTORY_SERVICE_URL:http://localhost:8074}` |
 | `/order/**`     | `${ORDER_SERVICE_URL:http://localhost:8077}`     |
 | `/payment/**`   | `${PAYMENT_SERVICE_URL:http://localhost:8078}`   |
 | `/product/**`   | `${PRODUCT_SERVICE_URL:http://localhost:8073}`   |
 | `/user/**`      | `${USER_SERVICE_URL:http://localhost:8075}`      |
 
-> **auth-service is not routed through the gateway yet.** `auth-service.yml` exists (port 8076,
-> `auth_schema`) but there is no `/auth/**` route above and no `AUTH_SERVICE_URL` placeholder —
-> it is reachable only directly. Add a sixth route here when it should be exposed externally.
-
 Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
+
+> ⚠️ **`/auth/**` is a special case.** Prefix stripping is fine for plain REST services, but an
+> authorization server advertises its own URLs. auth-service currently derives its issuer from the
+> incoming request, so through the gateway it publishes unreachable container URLs in
+> `/.well-known/openid-configuration`, the `iss` claim, and the JWKS URI — and the
+> authorization-code redirects land on paths the gateway does not route.
+>
+> The fix lives in auth-service, not here: pin the issuer to the external URL
+> (`http://localhost:8072/auth`) via an `AuthorizationServerSettings` bean. The authorization server
+> builds endpoint URLs as *issuer + path*, so a prefixed issuer advertises prefixed URLs that route
+> back through the gateway and strip cleanly. Until that exists, use auth-service directly on 8076;
+> `client_credentials` works through the gateway regardless (single POST, no discovery, no redirects).
 
 <a id="editing-workflow"></a>## Editing Workflow
 
