@@ -9,6 +9,12 @@ spring:
       # host runs; containers override via the *_SERVICE_URL env vars set in
       # docker-compose.yml (Compose DNS name + fixed port).
       routes:
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://localhost:8076}
+          predicates:
+            - Path=/auth/**
+          filters:
+            - RewritePath=/auth/(?<path>.*), /$\{path}
         - id: inventory-service
           uri: ${INVENTORY_SERVICE_URL:http://localhost:8074}
           predicates:
