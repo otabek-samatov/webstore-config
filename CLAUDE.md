@@ -31,6 +31,7 @@ webstore-config/
     ├── product-service.yml
     ├── inventory-service.yml
     ├── user-service.yml
+    ├── auth-service.yml
     ├── order-service.yml
     ├── order-service-prod.yml   # per-service, per-profile overlay (example)
     └── payment-service.yml
@@ -122,6 +123,7 @@ too**, or the host default and the Docker port will diverge.
 | `product-service.yml`    | (default)                 | `${SERVICE_PORT:8073}`  | `product_schema`     | —                                                                                 |
 | `inventory-service.yml`  | (default)                 | `${SERVICE_PORT:8074}`  | `inventory_schema`   | —                                                                                 |
 | `user-service.yml`       | (default)                 | `${SERVICE_PORT:8075}`  | `user_schema`        | —                                                                                 |
+| `auth-service.yml`       | (default)                 | `${SERVICE_PORT:8076}`  | `auth_schema`        | —                                                                                 |
 | `order-service.yml`      | (default)                 | `${SERVICE_PORT:8077}`  | `order_schema`       | `services.inventory.url` / `services.payment.url` — direct REST targets (see below) |
 | `payment-service.yml`    | (default)                 | `${SERVICE_PORT:8078}`  | `payment_schema`     | —                                                                                 |
 
@@ -152,6 +154,10 @@ Each external path is stripped of its prefix via `RewritePath` and forwarded to 
 | `/payment/**`   | `${PAYMENT_SERVICE_URL:http://localhost:8078}`   |
 | `/product/**`   | `${PRODUCT_SERVICE_URL:http://localhost:8073}`   |
 | `/user/**`      | `${USER_SERVICE_URL:http://localhost:8075}`      |
+
+> **auth-service is not routed through the gateway yet.** `auth-service.yml` exists (port 8076,
+> `auth_schema`) but there is no `/auth/**` route above and no `AUTH_SERVICE_URL` placeholder —
+> it is reachable only directly. Add a sixth route here when it should be exposed externally.
 
 Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
 
