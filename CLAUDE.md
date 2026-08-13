@@ -120,12 +120,12 @@ too**, or the host default and the Docker port will diverge.
 | File                     | `spring.application.name` | Port (default)          | `service.schemaName` | Notable overrides                                                                 |
 |--------------------------|---------------------------|-------------------------|----------------------|-----------------------------------------------------------------------------------|
 | `gateway-service.yml`    | (default)                 | `${SERVICE_PORT:8072}`  | —                    | `spring.cloud.gateway.routes` (see below)                                         |
-| `product-service.yml`    | (default)                 | `${SERVICE_PORT:8073}`  | `product_schema`     | `spring.security.oauth2.resourceserver.jwt.issuer-uri` — it is a resource server (see below) |
-| `inventory-service.yml`  | (default)                 | `${SERVICE_PORT:8074}`  | `inventory_schema`   | —                                                                                 |
-| `user-service.yml`       | (default)                 | `${SERVICE_PORT:8075}`  | `user_schema`        | —                                                                                 |
-| `auth-service.yml`       | (default)                 | `${SERVICE_PORT:8076}`  | `auth_schema`        | —                                                                                 |
-| `order-service.yml`      | (default)                 | `${SERVICE_PORT:8077}`  | `order_schema`       | `services.inventory.url` / `services.payment.url` — direct REST targets (see below) |
-| `payment-service.yml`    | (default)                 | `${SERVICE_PORT:8078}`  | `payment_schema`     | —                                                                                 |
+| `product-service.yml`    | (default)                 | `${SERVICE_PORT:8073}`  | `product_schema`     | resource server (see below)                                                       |
+| `inventory-service.yml`  | (default)                 | `${SERVICE_PORT:8074}`  | `inventory_schema`   | resource server                                                                   |
+| `user-service.yml`       | (default)                 | `${SERVICE_PORT:8075}`  | `user_schema`        | resource server                                                                   |
+| `auth-service.yml`       | (default)                 | `${SERVICE_PORT:8076}`  | `auth_schema`        | — (it *issues* tokens; deliberately not a resource server here)                   |
+| `order-service.yml`      | (default)                 | `${SERVICE_PORT:8077}`  | `order_schema`       | resource server **and** OAuth2 client; `services.inventory.url` / `services.payment.url` — direct REST targets (see below) |
+| `payment-service.yml`    | (default)                 | `${SERVICE_PORT:8078}`  | `payment_schema`     | resource server                                                                   |
 
 > config-service itself (default port 8071) is **not** configured from this repo — it is the server
 > that serves it. Its `server.port: ${SERVICE_PORT:8071}` lives in its **source** `application.yml`
@@ -160,7 +160,8 @@ Filter form: `RewritePath=/<prefix>/(?<path>.*), /$\{path}`.
 
 ### Resource servers
 
-`product-service.yml` is the first per-service file to configure token validation:
+**All five business-service files** — `product-`, `inventory-`, `payment-`, `user-` and
+`order-service.yml` — carry the identical block:
 
 ```yaml
 spring:
@@ -174,8 +175,50 @@ spring:
 This value must equal the `iss` claim in the token **exactly** — any mismatch is a blanket 401 with
 no hint as to why. auth-service currently derives its issuer from the incoming request host, so the
 `localhost:8076` default only lines up for host runs; pin `AuthorizationServerSettings` on
-auth-service before pointing this at a container DNS name or the gateway. As more services become
-resource servers, each gets the same block (and they should all resolve to the same issuer).
+auth-service before pointing this at a container DNS name or the gateway.
+
+The block is **repeated per file rather than hoisted into `application.yml`** — deliberately.
+`application.yml` reaches auth-service too, whose classpath carries the resource-server classes via
+the authorization-server starter, and the key there would leave two auto-configurations competing to
+define the single `JwtDecoder` bean (one of them an HTTP decoder aimed at auth-service itself). The
+cost is five copies of one line; keep them resolving to the same issuer.
+
+Per-endpoint rules live in each service's `SecurityConfig`, not here — see their `CLAUDE.md` files.
+In short: product-service leaves `GET /v1/books/**` public and gates the rest on `ADMIN` / `SERVICE`;
+inventory-, payment- and user-service require `ADMIN` / `SERVICE` everywhere; order-service requires
+only `authenticated()`.
+
+### OAuth2 clients
+
+`order-service.yml` is the only file with a `spring.security.oauth2.client.*` block. order-service is
+both a resource server *and* a client: it calls inventory-service and payment-service, which require
+`ADMIN` / `SERVICE`, so it authenticates as `webstore-service-client` under `client_credentials`.
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          webstore-service-client:
+            client-secret: ${auth_client_secret}   # never a literal — see Conventions
+            authorization-grant-type: client_credentials
+        provider:
+          webstore-auth:
+            token-uri: ${AUTH_SERVICE_URL:http://localhost:8076}/oauth2/token
+```
+
+> ⚠️ **`token-uri`, not the provider's `issuer-uri` — two distinct reasons.** A token endpoint is a
+> *network address*, which is why it uses `AUTH_SERVICE_URL` (already set by Compose to the container
+> DNS name) rather than `AUTH_ISSUER_URI` (an *identity* the `iss` claim must match). And Spring
+> resolves a **client** provider's `issuer-uri` eagerly via OIDC discovery at startup — using it here
+> would make order-service refuse to boot whenever auth-service is down. The resource-server
+> `issuer-uri` above has no such problem: Boot wraps it in a `SupplierJwtDecoder` and resolves it
+> lazily on the first authenticated request.
+
+`${auth_client_secret}` resolves the same way as the DB credentials — `/run/secrets/auth_client_secret`
+via the configtree import in containers, `AUTH_CLIENT_SECRET` on host runs — and must be the same
+value auth-service bcrypt-encodes for that client.
 
 > ⚠️ **`/auth/**` is a special case.** Prefix stripping is fine for plain REST services, but an
 > authorization server advertises its own URLs. auth-service currently derives its issuer from the
