@@ -5,3 +5,15 @@ server:
  
 service:
   schemaName: payment_schema
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Must equal the `iss` claim in the token EXACTLY, or every request 401s.
+          # auth-service currently derives its issuer from the request host, so this
+          # default only lines up for host runs (token minted via localhost:8076).
+          # Pin AuthorizationServerSettings on auth-service before setting this to a
+          # container or gateway URL.
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8076}
