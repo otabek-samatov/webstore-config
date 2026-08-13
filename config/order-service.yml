@@ -6,6 +6,50 @@ server:
 service:
   schemaName: order_schema
 
+spring:
+  security:
+    oauth2:
+      # Inbound: validate tokens presented to this service's own endpoints.
+      resourceserver:
+        jwt:
+          # Must equal the `iss` claim in the token EXACTLY, or every request 401s.
+          # auth-service currently derives its issuer from the request host, so this
+          # default only lines up for host runs (token minted via localhost:8076).
+          # Pin AuthorizationServerSettings on auth-service before setting this to a
+          # container or gateway URL.
+          issuer-uri: ${AUTH_ISSUER_URI:http://localhost:8076}
+      # Outbound: obtain tokens for the calls this service makes to inventory-service
+      # and payment-service, both of which require ADMIN or SERVICE on every endpoint.
+      client:
+        registration:
+          # Key must match CLIENT_REGISTRATION_ID in orderservice.configs.RestConfig.
+          webstore-service-client:
+            provider: webstore-auth
+            client-id: webstore-service-client
+            # Same resolution path as the DB credentials: /run/secrets/auth_client_secret
+            # via the configtree import in containers, or the AUTH_CLIENT_SECRET env var
+            # on host runs (relaxed binding). No default on purpose — a missing secret
+            # must fail startup rather than fall back to a known value.
+            client-secret: ${auth_client_secret}
+            authorization-grant-type: client_credentials
+            client-authentication-method: client_secret_basic
+            scope: webstore.read,webstore.write
+        provider:
+          webstore-auth:
+            # NOTE: token-uri, not issuer-uri — and the distinction matters twice over.
+            #
+            # 1. Meaning. issuer-uri above is an *identity* the `iss` claim must match;
+            #    this is a *network address* to POST to. They are the same host today but
+            #    answer different questions, and AUTH_SERVICE_URL is the var Compose
+            #    already sets to the container DNS name (http://auth-service:8076).
+            #
+            # 2. Startup. Spring resolves a client provider's issuer-uri EAGERLY via OIDC
+            #    discovery, so using it here would make order-service fail to start
+            #    whenever auth-service is down. Naming the endpoint outright keeps the
+            #    two services independent at boot; only the first token request needs
+            #    auth-service to be up.
+            token-uri: ${AUTH_SERVICE_URL:http://localhost:8076}/oauth2/token
+
 # Direct REST targets (no service discovery). Defaults suit host runs;
 # containers override via env vars set in docker-compose.yml.
 services:
